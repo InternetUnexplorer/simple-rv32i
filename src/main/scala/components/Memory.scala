@@ -1,9 +1,8 @@
 package components
 
-import Chisel.{MuxLookup, switch}
 import chisel3._
+import chisel3.util._
 import chisel3.experimental.ChiselEnum
-import chisel3.util.is
 
 object MemoryOp extends ChiselEnum {
   val LB  = Value
@@ -28,32 +27,25 @@ class Memory(size: Int) extends Module {
   val io     = IO(new MemoryIO)
   val memory = SyncReadMem(size, Vec(4, UInt(8.W)))
 
-  val writeMaskMapping = Seq(
-    MemoryOp.SB.asUInt -> "b0001".U,
-    MemoryOp.SW.asUInt -> "b0011".U
-  )
-  val writeMask = MuxLookup(io.op.asUInt, "b1111".U, writeMaskMapping).asBools
+  import MemoryOp._
 
   io.out := 0.U
 
-  switch(io.op) {
-    is(MemoryOp.SB, MemoryOp.SH, MemoryOp.SW) {
-      memory.write(io.addr, io.in.asTypeOf(Vec(4, UInt(8.W))))
-    }
-    is(MemoryOp.LB) {
-      io.out := memory.read(io.addr).asUInt()(7, 0).asTypeOf(SInt(32.W)).asUInt
-    }
-    is(MemoryOp.LH) {
-      io.out := memory.read(io.addr).asUInt()(15, 0).asTypeOf(SInt(32.W)).asUInt
-    }
-    is(MemoryOp.LW) {
-      io.out := memory.read(io.addr).asUInt
-    }
-    is(MemoryOp.LBU) {
-      io.out := memory.read(io.addr).asTypeOf(UInt(8.W))
-    }
-    is(MemoryOp.LHU) {
-      io.out := memory.read(io.addr).asTypeOf(UInt(16.W))
-    }
+  when(io.op === SB | io.op === SH | io.op === SW) {
+    val writeMaskMapping = Seq(
+      SB.asUInt -> "b0001".U,
+      SH.asUInt -> "b0011".U
+    )
+    val mask = MuxLookup(io.op.asUInt, "b1111".U, writeMaskMapping).asBools
+    memory.write(io.addr, io.in.asTypeOf(Vec(4, UInt(8.W))), mask)
+  }.elsewhen(io.op =/= MemoryOp.NOP) {
+    val data = memory.read(io.addr).asUInt
+    val mapping = Seq(
+      LB.asUInt  -> data(7, 0).asTypeOf(SInt(32.W)).asUInt,
+      LH.asUInt  -> data(15, 0).asTypeOf(SInt(32.W)).asUInt,
+      LBU.asUInt -> data(7, 0),
+      LHU.asUInt -> data(15, 0)
+    )
+    io.out := MuxLookup(io.op.asUInt, data, mapping)
   }
 }

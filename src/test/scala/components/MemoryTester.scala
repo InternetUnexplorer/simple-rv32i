@@ -43,14 +43,21 @@ class MemoryTester extends AnyFlatSpec with ChiselScalatestTester {
     test(new Memory(size)).withAnnotations(Seq(WriteVcdAnnotation)) { c =>
       memInit(c, Seq("b00000000000000001000000010000000".U))
 
-      c.clock.step()
       memRead(c, MemoryOp.LB, 0.U, "b11111111111111111111111110000000".U)
-      c.clock.step()
       memRead(c, MemoryOp.LH, 0.U, "b11111111111111111000000010000000".U)
-      c.clock.step()
       memRead(c, MemoryOp.LBU, 0.U, "b00000000000000000000000010000000".U)
-      c.clock.step()
       memRead(c, MemoryOp.LHU, 0.U, "b00000000000000001000000010000000".U)
+    }
+  }
+
+  it should "handle masked stores correctly" in {
+    test(new Memory(size)).withAnnotations(Seq(WriteVcdAnnotation)) { c =>
+      memInit(c, Seq("b11111111111111111111111111111111".U))
+
+      memWrite(c, MemoryOp.SB, 0.U, 0.U)
+      memRead(c, MemoryOp.LW, 0.U, "b11111111111111111111111100000000".U)
+      memWrite(c, MemoryOp.SH, 0.U, 0.U)
+      memRead(c, MemoryOp.LW, 0.U, "b11111111111111110000000000000000".U)
     }
   }
 
