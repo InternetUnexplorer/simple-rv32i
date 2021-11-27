@@ -21,4 +21,4 @@ prog: $(OUT_DIR)/TopLevel.bin
 	iceprog $<
 
 clean:
-	rm -rf $(OUT_DIR)
+	rm -rf $(OUT_DIR) test_run_dir
