@@ -10,18 +10,19 @@ class AluTester extends AnyFlatSpec with ChiselScalatestTester {
   behavior of "Alu"
 
   it should "add correctly" in {
-    test(new Alu()).withAnnotations(Seq(WriteVcdAnnotation)) { c =>
+    test(new Alu()).withAnnotations(
+      Seq(WriteVcdAnnotation)
+    ) { c =>
       val aValues = Seq.fill(10)(Random.nextInt(Integer.MAX_VALUE))
       val bValues = Seq.fill(10)(Random.nextInt(Integer.MAX_VALUE))
 
-      for (a <- aValues) {
+      for (a <- aValues)
         for (b <- bValues) {
           c.io.a.poke(a.U(32.W))
           c.io.b.poke(b.U(32.W))
           c.clock.step()
           c.io.out.expect((a.toLong + b.toLong).U)
         }
-      }
     }
   }
 

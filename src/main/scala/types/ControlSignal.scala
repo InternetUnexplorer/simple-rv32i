@@ -2,7 +2,7 @@ package types
 
 import chisel3._
 import chisel3.experimental.ChiselEnum
-import components.{AluOp, MemoryOp}
+import components.{AluOp, JumpType, MemoryOp}
 
 class ControlSignal extends Bundle {
   val aluOp     = AluOp()
@@ -10,6 +10,7 @@ class ControlSignal extends Bundle {
   val aluBSrc   = AluBSrc()
   val memoryOp  = MemoryOp()
   val writeback = Writeback()
+  val jumpType  = JumpType()
   val immFormat = ImmFormat()
 }
 
@@ -26,10 +27,10 @@ object AluBSrc extends ChiselEnum {
 }
 
 object Writeback extends ChiselEnum {
+  val None = Value
   val Alu  = Value
   val Mem  = Value
   val Ctrl = Value
-  val None = Value
 }
 
 object ImmFormat extends ChiselEnum {

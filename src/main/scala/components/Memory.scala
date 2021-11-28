@@ -1,10 +1,11 @@
 package components
 
 import chisel3._
-import chisel3.util._
 import chisel3.experimental.ChiselEnum
+import chisel3.util._
 
 object MemoryOp extends ChiselEnum {
+  val NOP = Value
   val LB  = Value
   val LH  = Value
   val LW  = Value
@@ -13,7 +14,6 @@ object MemoryOp extends ChiselEnum {
   val SB  = Value
   val SH  = Value
   val SW  = Value
-  val NOP = Value
 }
 
 class MemoryIO extends Bundle {
@@ -24,22 +24,25 @@ class MemoryIO extends Bundle {
 }
 
 class Memory(size: Int) extends Module {
+  require(size % 4 == 0, "memory size must be a multiple of 4")
+
   val io     = IO(new MemoryIO)
-  val memory = SyncReadMem(size, Vec(4, UInt(8.W)))
+  val memory = SyncReadMem(size >> 2, Vec(4, UInt(8.W)))
 
-  import MemoryOp._
+  import components.MemoryOp._
 
-  io.out := 0.U
+  val index = (io.addr >> 2.U).asUInt;
 
+  io.out := DontCare
   when(io.op === SB | io.op === SH | io.op === SW) {
     val writeMaskMapping = Seq(
       SB.asUInt -> "b0001".U,
       SH.asUInt -> "b0011".U
     )
     val mask = MuxLookup(io.op.asUInt, "b1111".U, writeMaskMapping).asBools
-    memory.write(io.addr, io.in.asTypeOf(Vec(4, UInt(8.W))), mask)
+    memory.write(index, io.in.asTypeOf(Vec(4, UInt(8.W))), mask)
   }.elsewhen(io.op =/= MemoryOp.NOP) {
-    val data = memory.read(io.addr).asUInt
+    val data = memory.read(index).asUInt
     val mapping = Seq(
       LB.asUInt  -> data(7, 0).asTypeOf(SInt(32.W)).asUInt,
       LH.asUInt  -> data(15, 0).asTypeOf(SInt(32.W)).asUInt,

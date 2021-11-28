@@ -4,29 +4,29 @@ import chisel3._
 import chisel3.util._
 
 class Instruction extends Bundle {
-  val bits = UInt(32.W)
+  val instruction = UInt(32.W)
 
-  def rd  = bits(11, 7)
-  def rs1 = bits(19, 15)
-  def rs2 = bits(24, 40)
+  def rd: UInt  = instruction(11, 7)
+  def rs1: UInt = instruction(19, 15)
+  def rs2: UInt = instruction(24, 20)
 
-  def imm(format: ImmFormat.Type) = {
-    val immIType = bits(31, 20).asSInt
-    val immSType = Cat(bits(31, 25), bits(11, 7)).asSInt
+  def imm(format: ImmFormat.Type): SInt = {
+    val immIType = instruction(31, 20).asSInt
+    val immSType = Cat(instruction(31, 25), instruction(11, 7)).asSInt
     val immBType = Cat(
-      bits(31),
-      bits(7),
-      bits(30, 25),
-      bits(11, 8),
+      instruction(31),
+      instruction(7),
+      instruction(30, 25),
+      instruction(11, 8),
       0.U(1.W)
     ).asSInt
-    val immUType = Cat(bits(31, 12), 0.U(12.W)).asSInt
+    val immUType = Cat(instruction(31, 12), 0.U(12.W)).asSInt
     val immJType = Cat(
-      bits(31),
-      bits(19, 12),
-      bits(20),
-      bits(30, 25),
-      bits(24, 21),
+      instruction(31),
+      instruction(19, 12),
+      instruction(20),
+      instruction(30, 25),
+      instruction(24, 21),
       0.U(1.W)
     ).asSInt
 

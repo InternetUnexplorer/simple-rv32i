@@ -9,11 +9,9 @@ class MemoryTester extends AnyFlatSpec with ChiselScalatestTester {
 
   val size = 1024
 
-  def memInit(memory: Memory, values: Seq[UInt] = Seq(0.U)): Unit = {
-    for ((value, addr) <- values.zipWithIndex) {
-      memWrite(memory, MemoryOp.SW, addr.U, value)
-    }
-  }
+  def memInit(memory: Memory, values: Seq[UInt] = Seq(0.U)): Unit =
+    for ((value, addr) <- values.zipWithIndex)
+      memWrite(memory, MemoryOp.SW, (addr * 4).U, value)
 
   def memWrite(
       memory: Memory,
@@ -63,15 +61,13 @@ class MemoryTester extends AnyFlatSpec with ChiselScalatestTester {
 
   it should "handle reads followed by writes correctly" in {
     test(new Memory(size)).withAnnotations(Seq(WriteVcdAnnotation)) { c =>
-      memInit(c, (0 until size).map(x => x.U))
+      memInit(c, (0 until size / 4).map(x => x.U))
 
-      for (addr <- 0 until size) {
-        memRead(c, MemoryOp.LW, addr.U, addr.U)
-      }
+      for (addr <- 0 until size / 4)
+        memRead(c, MemoryOp.LW, (addr * 4).U, addr.U)
 
-      for (addr <- (0 until size).reverse) {
-        memRead(c, MemoryOp.LW, addr.U, addr.U)
-      }
+      for (addr <- (0 until size / 4).reverse)
+        memRead(c, MemoryOp.LW, (addr * 4).U, addr.U)
     }
   }
 }
