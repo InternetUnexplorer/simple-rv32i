@@ -1,4 +1,6 @@
+import Chisel.switch
 import chisel3._
+import chisel3.util.is
 import components._
 import types._
 
@@ -6,30 +8,28 @@ class CpuDebugIO extends Bundle {
   val debugVal = Output(UInt(32.W))
 }
 
-class Cpu(memSize: Int, memDataFile: String) extends Module {
+class Cpu(memoryParams: MemoryParams) extends Module {
   val debugIO = IO(new CpuDebugIO)
 
   val decoder     = Module(new Decoder)
   val alu         = Module(new Alu)
   val registers   = Module(new RegisterFile)
-  val memory      = Module(new Memory(memSize, Option(memDataFile)))
+  val memory      = Module(new Memory(memoryParams))
   val controlUnit = Module(new ControlUnit)
 
-  val pc          = RegInit(0.U(32.W))
-  val instruction = RegInit("h6f".U.asTypeOf(new Instruction))
-  val memStall    = RegInit(true.B)
+  val pc = RegInit(0.U(32.W))
 
   val debugVal = RegInit(0.U(32.W))
   debugIO.debugVal := debugVal
 
   // //////////////////////////////////////////////
 
-  when(!memStall) { instruction := memory.io.out.asTypeOf(new Instruction) }
-
-  decoder.io.instruction := instruction
+  memory.io.instrAddr := pc
+  val instruction = memory.io.instrData
 
   // //////////////////////////////////////////////
 
+  decoder.io.instruction := instruction
   val control = decoder.io.control
   val isECall = control.writeback === Writeback.Env
 
@@ -62,6 +62,12 @@ class Cpu(memSize: Int, memDataFile: String) extends Module {
 
   // //////////////////////////////////////////////
 
+  memory.io.memOp   := control.memoryOp
+  memory.io.memAddr := alu.io.out
+  memory.io.memIn   := rs2
+
+  // //////////////////////////////////////////////
+
   registers.io.writeAddr := 0.U
   registers.io.writeData := 0.U
 
@@ -73,24 +79,12 @@ class Cpu(memSize: Int, memDataFile: String) extends Module {
     registers.io.writeData := controlUnit.io.pcPlus4
   }.elsewhen(control.writeback === Writeback.Mem) {
     registers.io.writeAddr := rd
-    registers.io.writeData := memory.io.out
+    registers.io.writeData := memory.io.memOut
   }.elsewhen(control.writeback === Writeback.Env) {
-    when(rs1 === 0.U) {
-      debugVal := rs2
+    switch(rs1) {
+      is(0.U) { debugVal := rs2 }
     }
   }
 
-  memStall := !memStall & control.memoryOp =/= MemoryOp.NOP
-
-  when(!memStall) {
-    pc := controlUnit.io.nextPc
-
-    memory.io.op   := MemoryOp.LW
-    memory.io.addr := pc
-    memory.io.in   := DontCare
-  }.otherwise {
-    memory.io.op   := control.memoryOp
-    memory.io.addr := alu.io.out
-    memory.io.in   := rs2
-  }
+  pc := controlUnit.io.nextPc
 }

@@ -7,11 +7,15 @@ import org.scalatest.flatspec.AnyFlatSpec
 class MemoryTester extends AnyFlatSpec with ChiselScalatestTester {
   behavior of "Memory"
 
-  val size = 1024
+  val ramSize  = 1024
+  val ramStart = 0x1000
 
-  def memInit(memory: Memory, values: Seq[UInt] = Seq(0.U)): Unit =
-    for ((value, addr) <- values.zipWithIndex)
-      memWrite(memory, MemoryOp.SW, (addr * 4).U, value)
+  def params(romData: Seq[UInt] = Seq(0.U)): MemoryParams =
+    MemoryParams(romData, ramSize, ramStart)
+
+  def ramInit(memory: Memory, values: Seq[UInt] = Seq(0.U)): Unit =
+    for ((value, index) <- values.zipWithIndex)
+      memWrite(memory, MemoryOp.SW, (index * 4 + ramStart).U, value)
 
   def memWrite(
       memory: Memory,
@@ -19,10 +23,15 @@ class MemoryTester extends AnyFlatSpec with ChiselScalatestTester {
       addr: UInt,
       in: UInt
   ): Unit = {
-    memory.io.op.poke(op)
-    memory.io.addr.poke(addr)
-    memory.io.in.poke(in)
+    memory.io.memOp.poke(op)
+    memory.io.memAddr.poke(addr)
+    memory.io.memIn.poke(in)
     memory.clock.step()
+  }
+
+  def instrRead(memory: Memory, addr: UInt, expected: UInt): Unit = {
+    memory.io.instrAddr.poke(addr)
+    memory.io.instrData.asUInt.expect(expected)
   }
 
   def memRead(
@@ -31,43 +40,50 @@ class MemoryTester extends AnyFlatSpec with ChiselScalatestTester {
       addr: UInt,
       expected: UInt
   ): Unit = {
-    memory.io.op.poke(op)
-    memory.io.addr.poke(addr)
+    memory.io.memOp.poke(op)
+    memory.io.memAddr.poke(addr)
+    memory.io.memOut.expect(expected)
     memory.clock.step()
-    memory.io.out.expect(expected)
+  }
+
+  it should "handle reads from ROM correctly" in {
+    val romData = (0 until 128).map(x => x.U)
+    test(new Memory(params(romData))) { c =>
+      for ((value, index) <- romData.zipWithIndex) {
+        instrRead(c, (index * 4).U, value)
+        memRead(c, MemoryOp.LW, (index * 4).U, value)
+      }
+    }
+  }
+
+  it should "ignore stores to ROM" in {
+    test(new Memory(params(Seq(0.U)))) { c =>
+      memWrite(c, MemoryOp.SW, 0.U, 1.U)
+      memRead(c, MemoryOp.LW, 0.U, 0.U)
+    }
   }
 
   it should "handle masked loads correctly" in {
-    test(new Memory(size)).withAnnotations(Seq(WriteVcdAnnotation)) { c =>
-      memInit(c, Seq("b00000000000000001000000010000000".U))
-
-      memRead(c, MemoryOp.LB, 0.U, "b11111111111111111111111110000000".U)
-      memRead(c, MemoryOp.LH, 0.U, "b11111111111111111000000010000000".U)
-      memRead(c, MemoryOp.LBU, 0.U, "b00000000000000000000000010000000".U)
-      memRead(c, MemoryOp.LHU, 0.U, "b00000000000000001000000010000000".U)
+    val romData = Seq("h80808080".U)
+    val ramData = Seq("h80808080".U)
+    test(new Memory(params(romData))) { c =>
+      ramInit(c, ramData)
+      for (addr <- Seq(0.U, ramStart.U)) {
+        memRead(c, MemoryOp.LB, addr, "hffffff80".U)
+        memRead(c, MemoryOp.LH, addr, "hffff8080".U)
+        memRead(c, MemoryOp.LBU, addr, "h00000080".U)
+        memRead(c, MemoryOp.LHU, addr, "h00008080".U)
+      }
     }
   }
 
   it should "handle masked stores correctly" in {
-    test(new Memory(size)).withAnnotations(Seq(WriteVcdAnnotation)) { c =>
-      memInit(c, Seq("b11111111111111111111111111111111".U))
-
-      memWrite(c, MemoryOp.SB, 0.U, 0.U)
-      memRead(c, MemoryOp.LW, 0.U, "b11111111111111111111111100000000".U)
-      memWrite(c, MemoryOp.SH, 0.U, 0.U)
-      memRead(c, MemoryOp.LW, 0.U, "b11111111111111110000000000000000".U)
-    }
-  }
-
-  it should "handle reads followed by writes correctly" in {
-    test(new Memory(size)).withAnnotations(Seq(WriteVcdAnnotation)) { c =>
-      memInit(c, (0 until size / 4).map(x => x.U))
-
-      for (addr <- 0 until size / 4)
-        memRead(c, MemoryOp.LW, (addr * 4).U, addr.U)
-
-      for (addr <- (0 until size / 4).reverse)
-        memRead(c, MemoryOp.LW, (addr * 4).U, addr.U)
+    test(new Memory(params())) { c =>
+      ramInit(c, Seq("hffffffff".U))
+      memWrite(c, MemoryOp.SB, ramStart.U, 0.U)
+      memRead(c, MemoryOp.LW, ramStart.U, "hffffff00".U)
+      memWrite(c, MemoryOp.SH, ramStart.U, 0.U)
+      memRead(c, MemoryOp.LW, ramStart.U, "hffff0000".U)
     }
   }
 }
