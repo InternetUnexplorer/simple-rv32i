@@ -11,7 +11,7 @@ static inline int __syscall(int fun, int arg) {
 void set_debug_value(int value) { __syscall(0, value); }
 
 void main() {
-  set_debug_value(64);
+  set_debug_value(100);
 
   while (1)
     ;

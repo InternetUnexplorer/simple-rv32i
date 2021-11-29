@@ -21,7 +21,8 @@ class CpuTester extends AnyFlatSpec with ChiselScalatestTester {
     val memoryParams = MemoryParams(loadProgram("/test.bin"), 1024)
 
     test(new Cpu(memoryParams)) { c =>
-      c.clock.step(128)
+      c.clock.setTimeout(1001)
+      c.clock.step(1000)
     }
   }
 }
