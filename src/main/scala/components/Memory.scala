@@ -3,6 +3,7 @@ package components
 import chisel3._
 import chisel3.experimental.ChiselEnum
 import chisel3.util._
+import chisel3.util.experimental.loadMemoryFromFile
 
 object MemoryOp extends ChiselEnum {
   val NOP = Value
@@ -23,13 +24,16 @@ class MemoryIO extends Bundle {
   val out  = Output(UInt(32.W))
 }
 
-class Memory(size: Int) extends Module {
+class Memory(size: Int, dataFile: Option[String] = None) extends Module {
+  import components.MemoryOp._
+
   require(size % 4 == 0, "memory size must be a multiple of 4")
 
   val io     = IO(new MemoryIO)
   val memory = SyncReadMem(size >> 2, Vec(4, UInt(8.W)))
 
-  import components.MemoryOp._
+  if (dataFile.isDefined)
+    loadMemoryFromFile(memory, dataFile.get)
 
   val index = (io.addr >> 2.U).asUInt;
 

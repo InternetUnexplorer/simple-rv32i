@@ -1,41 +1,44 @@
 import chisel3._
-import chisel3.util._
 import components._
 import types._
 
 class CpuDebugIO extends Bundle {
-  val pc      = Output(UInt(32.W))
-  val control = Output(new ControlSignal)
+  val debugVal = Output(UInt(32.W))
 }
 
-class Cpu(program: Seq[UInt], memorySize: Int) extends Module {
+class Cpu(memSize: Int, memDataFile: String) extends Module {
   val debugIO = IO(new CpuDebugIO)
 
-  val imem        = Module(new IMem(program))
   val decoder     = Module(new Decoder)
   val alu         = Module(new Alu)
   val registers   = Module(new RegisterFile)
-  val memory      = Module(new Memory(memorySize))
+  val memory      = Module(new Memory(memSize, Option(memDataFile)))
   val controlUnit = Module(new ControlUnit)
+
   val pc          = RegInit(0.U(32.W))
-  val stall       = RegInit(false.B)
+  val instruction = RegInit("h6f".U.asTypeOf(new Instruction))
+  val memStall    = RegInit(true.B)
+
+  val debugVal = RegInit(0.U(32.W))
+  debugIO.debugVal := debugVal
 
   // //////////////////////////////////////////////
 
-  imem.io.address := pc
-  val instruction = imem.io.instruction
+  when(!memStall) { instruction := memory.io.out.asTypeOf(new Instruction) }
+
+  decoder.io.instruction := instruction
 
   // //////////////////////////////////////////////
 
   val control = decoder.io.control
+  val isECall = control.writeback === Writeback.Env
 
-  debugIO.pc      := pc
-  debugIO.control := control
+  // //////////////////////////////////////////////
 
-  decoder.io.instruction := instruction
-
-  registers.io.read1Addr := instruction.rs1
-  registers.io.read2Addr := instruction.rs2
+  // Load the registers specified the instruction.
+  // If the instruction is ECALL, load a0 (x10) and a1 (x11) instead.
+  registers.io.read1Addr := Mux(isECall, 10.U, instruction.rs1)
+  registers.io.read2Addr := Mux(isECall, 11.U, instruction.rs2)
 
   val rd  = instruction.rd
   val rs1 = registers.io.read1Data
@@ -50,12 +53,6 @@ class Cpu(program: Seq[UInt], memorySize: Int) extends Module {
 
   // //////////////////////////////////////////////
 
-  memory.io.op   := control.memoryOp
-  memory.io.addr := Mux(control.memoryOp =/= MemoryOp.NOP, alu.io.out, 0.U)
-  memory.io.in   := rs2
-
-  // //////////////////////////////////////////////
-
   controlUnit.io.pc  := pc
   controlUnit.io.rs1 := rs1
   controlUnit.io.rs2 := rs2
@@ -65,26 +62,35 @@ class Cpu(program: Seq[UInt], memorySize: Int) extends Module {
 
   // //////////////////////////////////////////////
 
-  registers.io.writeData := MuxLookup(
-    control.writeback.asUInt,
-    alu.io.out,
-    Seq(
-      Writeback.Mem.asUInt  -> memory.io.out,
-      Writeback.Ctrl.asUInt -> controlUnit.io.pcPlus4
-    )
-  )
+  registers.io.writeAddr := 0.U
+  registers.io.writeData := 0.U
 
-  // //////////////////////////////////////////////
+  when(control.writeback === Writeback.Alu) {
+    registers.io.writeAddr := rd
+    registers.io.writeData := alu.io.out
+  }.elsewhen(control.writeback === Writeback.Ctrl) {
+    registers.io.writeAddr := rd
+    registers.io.writeData := controlUnit.io.pcPlus4
+  }.elsewhen(control.writeback === Writeback.Mem) {
+    registers.io.writeAddr := rd
+    registers.io.writeData := memory.io.out
+  }.elsewhen(control.writeback === Writeback.Env) {
+    when(rs1 === 0.U) {
+      debugVal := rs2
+    }
+  }
 
-  when(control.writeback === Writeback.Mem & !stall) {
-    registers.io.writeAddr := 0.U
+  memStall := !memStall & control.memoryOp =/= MemoryOp.NOP
 
-    pc    := pc
-    stall := true.B
+  when(!memStall) {
+    pc := controlUnit.io.nextPc
+
+    memory.io.op   := MemoryOp.LW
+    memory.io.addr := pc
+    memory.io.in   := DontCare
   }.otherwise {
-    registers.io.writeAddr := Mux(control.writeback =/= Writeback.None, rd, 0.U)
-
-    pc    := controlUnit.io.nextPc
-    stall := false.B
+    memory.io.op   := control.memoryOp
+    memory.io.addr := alu.io.out
+    memory.io.in   := rs2
   }
 }

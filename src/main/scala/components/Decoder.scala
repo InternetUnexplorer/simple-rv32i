@@ -66,7 +66,9 @@ class Decoder extends Module {
     SRL   -> List(O.SRL,   A.Rs1, B.Rs2, M.NOP, W.Alu,  J.None, I.SType),
     SRA   -> List(O.SRA,   A.Rs1, B.Rs2, M.NOP, W.Alu,  J.None, I.SType),
     OR    -> List(O.OR,    A.Rs1, B.Rs2, M.NOP, W.Alu,  J.None, I.SType),
-    AND   -> List(O.AND,   A.Rs1, B.Rs2, M.NOP, W.Alu,  J.None, I.SType)
+    AND   -> List(O.AND,   A.Rs1, B.Rs2, M.NOP, W.Alu,  J.None, I.SType),
+    
+    ECALL -> List(O.Any,   A.Any, B.Any, M.NOP, W.Env,  J.None, I.SType),
   )
   /* format: on */
 

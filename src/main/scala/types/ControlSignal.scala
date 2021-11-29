@@ -31,6 +31,7 @@ object Writeback extends ChiselEnum {
   val Alu  = Value
   val Mem  = Value
   val Ctrl = Value
+  val Env  = Value
 }
 
 object ImmFormat extends ChiselEnum {
