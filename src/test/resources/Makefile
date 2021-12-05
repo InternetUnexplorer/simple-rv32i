@@ -9,7 +9,10 @@ CC_FLAGS = -nostartfiles       \
 	   -lgcc               \
 	   -Wl,-T,$(LD_SCRIPT) \
 	   -Os                 \
-	   -flto
+
+ifndef NO_LTO
+	CC_FLAGS += -flto
+endif
 
 OBJCOPY_FLAGS = -O binary
 
