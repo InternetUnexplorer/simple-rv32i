@@ -2,20 +2,20 @@ OUTPUT_ARCH(riscv)
 
 MEMORY
 {
-    rom : ORIGIN = 0x00000000, LENGTH = 0x00010000
-    ram : ORIGIN = 0x00010000, LENGTH = 1024
+    rom (rx)  : ORIGIN = 0x00000000, LENGTH = 2K
+    ram (rwx) : ORIGIN = 0x80000000, LENGTH = 4K
 }
 
-start = 0x0;
-
-PROVIDE(__stack_top = ORIGIN(ram) + LENGTH(ram));
 ENTRY(_start)
 
 SECTIONS
 {
-    .init : { *(.init*) } > rom
+    PROVIDE(__stack_top = ORIGIN(ram) + LENGTH(ram));
+
+    .init : { *(SORT_NONE(.init)) } > rom
     .text : { *(.text*) } > rom
     .rodata : { *(.rodata*) } > rom
     .bss : { *(.bss*) } > ram
     .data : { *(.data*) } > ram
+    /DISCARD/ : { *(.eh_frame* .debug* .comment .riscv.attributes) }
 }

@@ -7,8 +7,8 @@ import org.scalatest.flatspec.AnyFlatSpec
 class MemoryTester extends AnyFlatSpec with ChiselScalatestTester {
   behavior of "Memory"
 
-  val ramSize  = 1024
-  val ramStart = 0x1000
+  val ramSize  = 4096L
+  val ramStart = 0x80000000L
 
   def params(romData: Seq[UInt] = Seq(0.U)): MemoryParams =
     MemoryParams(romData, ramSize, ramStart)

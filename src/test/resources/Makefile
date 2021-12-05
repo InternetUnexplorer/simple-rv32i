@@ -3,8 +3,14 @@ SRC_FILES = $(wildcard *.c)
 LD_SCRIPT = riscv32-simple.ld
 RUNTIME = crt0.s
 
-CC_FLAGS = -march=rv32i -mabi=ilp32 -nostartfiles \
-	   -ffreestanding -Wl,-T,$(LD_SCRIPT) -static-libgcc -lgcc -Os
+CC_FLAGS = -nostartfiles       \
+	   -ffreestanding      \
+	   -static-libgcc      \
+	   -lgcc               \
+	   -Wl,-T,$(LD_SCRIPT) \
+	   -Os                 \
+	   -flto
+
 OBJCOPY_FLAGS = -O binary
 
 BIN_FILES = $(SRC_FILES:.c=.bin)
@@ -18,7 +24,7 @@ default: $(BIN_FILES)
 
 %.bin: %.o
 	$(strip riscv32-none-elf-objcopy $(OBJCOPY_FLAGS) $< $@)
-	@riscv32-none-elf-objdump -D $<
+	@riscv32-none-elf-objdump -D -M no-aliases $<
 	@hexyl $@
 
 clean:

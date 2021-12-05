@@ -7,7 +7,6 @@ _start:
     .option norelax
     .option pop
     la sp, __stack_top
-    add s0, sp, zero
     jal zero, main
     .cfi_endproc
     .end

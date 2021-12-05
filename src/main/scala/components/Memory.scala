@@ -31,8 +31,8 @@ class MemoryIO extends Bundle {
 
 case class MemoryParams(
     romData: Seq[UInt],
-    ramSize: Int,
-    ramStart: Int = 0x10000
+    ramSize: Long = 4096L,
+    ramStart: Long = 0x80000000L
 )
 
 class Memory(params: MemoryParams) extends Module {
