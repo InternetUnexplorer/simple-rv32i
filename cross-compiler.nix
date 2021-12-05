@@ -4,6 +4,7 @@ let
       config = "riscv32-none-elf";
       libc = "newlib";
       gcc.abi = "ilp32";
+      gcc.arch = "rv32i";
     };
   };
 in pkgs.symlinkJoin {
